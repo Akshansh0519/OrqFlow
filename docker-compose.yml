@@ -1,0 +1,99 @@
+services:
+
+  # ── Main FastAPI + LangGraph API ─────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      mcp-db:
+        condition: service_started
+      mcp-search:
+        condition: service_started
+      mcp-files:
+        condition: service_started
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app  # live reload in dev — remove in production image
+
+  # ── Frontend Studio (port 5173) ──────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    depends_on:
+      - api
+    ports:
+      - "5173:5173"
+
+  # ── MCP DB Server (port 8001) ────────────────────────────────────────────
+  mcp-db:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: python -m mcp_servers.db_server
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8001:8001"
+
+  # ── MCP Search Server (port 8002) ────────────────────────────────────────
+  mcp-search:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: python -m mcp_servers.search_server
+    env_file: .env
+    ports:
+      - "8002:8002"
+
+  # ── MCP Files Server (port 8003) ────────────────────────────────────────
+  mcp-files:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: python -m mcp_servers.files_server
+    env_file: .env
+    volumes:
+      - workspace_data:/workspace
+    ports:
+      - "8003:8003"
+
+  # ── PostgreSQL ───────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: orqflow
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d orqflow"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "5432:5432"  # expose for local DB tools (TablePlus, DBeaver, etc.)
+
+  # ── Redis ────────────────────────────────────────────────────────────────
+  redis:
+    image: redis/redis-stack-server:latest
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"  # expose for local Redis tools
+
+volumes:
+  postgres_data: {}
+  redis_data: {}
+  workspace_data: {}  # sandbox for mcp-files per-thread workspaces

@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+.eggs/
+
+# Virtualenv / uv / poetry
+.venv/
+venv/
+env/
+ENV/
+
+# Ruff / mypy / pytest cache
+.ruff_cache/
+.mypy_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Environment secrets — NEVER commit these
+.env
+.env.local
+.env.*.local
+
+# Alembic — compiled migrations only
+alembic/versions/*.pyc
+
+# Workspace files (sandbox for mcp-files server)
+workspace/
+
+# Docker
+.docker/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+

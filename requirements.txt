@@ -1,0 +1,51 @@
+# ── Core API Framework ──────────────────────────────────────────────────────
+fastapi==0.115.12
+uvicorn[standard]==0.34.0
+sse-starlette==3.0.3
+python-multipart==0.0.20
+pydantic==2.11.5
+pydantic-settings==2.9.1
+email-validator==2.3.0
+
+# ── Database ─────────────────────────────────────────────────────────────────
+sqlalchemy[asyncio]==2.0.41
+asyncpg==0.30.0
+aiosqlite==0.21.0
+alembic==1.15.2
+
+# ── Redis ────────────────────────────────────────────────────────────────────
+redis[asyncio]==5.2.1
+
+# ── LangGraph + LangChain ────────────────────────────────────────────────────
+langgraph==0.5.1
+langgraph-checkpoint-redis==0.0.8
+langgraph-checkpoint-postgres==2.0.25
+langchain-core==0.3.65
+langchain-anthropic==0.3.15
+langchain-google-genai==2.1.5
+langchain-groq==0.2.4
+langchain-mcp-adapters==0.1.6
+
+# ── MCP ──────────────────────────────────────────────────────────────────────
+fastmcp==2.5.2
+
+# ── Auth ─────────────────────────────────────────────────────────────────────
+pyjwt==2.10.1
+bcrypt==4.3.0
+
+# ── Search ───────────────────────────────────────────────────────────────────
+tavily-python==0.5.1
+
+# ── SQL Parsing (used by mcp-db server) ─────────────────────────────────────
+sqlparse==0.5.3
+
+# ── Static Analysis (used by mcp-files lint_python tool) ────────────────────
+ruff==0.11.13
+
+# ── Observability / Logging ──────────────────────────────────────────────────
+structlog==25.3.0
+
+# ── Testing ──────────────────────────────────────────────────────────────────
+pytest==8.4.0
+pytest-asyncio==1.0.0
+httpx==0.28.1
