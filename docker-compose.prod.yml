@@ -1,0 +1,32 @@
+services:
+  api:
+    command: !reset null
+    volumes: !reset []
+    environment:
+      ENVIRONMENT: production
+      RUN_MIGRATIONS: "true"
+      MCP_DATABASE_URL: ${MCP_DATABASE_URL:-postgresql+asyncpg://postgres:password@postgres:5432/orqflow}
+
+  mcp-db:
+    ports: !reset []
+    environment:
+      ENVIRONMENT: production
+      MCP_DATABASE_URL: ${MCP_DATABASE_URL:-postgresql+asyncpg://postgres:password@postgres:5432/orqflow}
+
+  mcp-search:
+    ports: !reset []
+    environment:
+      ENVIRONMENT: production
+      MCP_DATABASE_URL: ${MCP_DATABASE_URL:-postgresql+asyncpg://postgres:password@postgres:5432/orqflow}
+
+  mcp-files:
+    ports: !reset []
+    environment:
+      ENVIRONMENT: production
+      MCP_DATABASE_URL: ${MCP_DATABASE_URL:-postgresql+asyncpg://postgres:password@postgres:5432/orqflow}
+
+  postgres:
+    ports: !reset []
+
+  redis:
+    ports: !reset []
