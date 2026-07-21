@@ -21,22 +21,23 @@ from __future__ import annotations
 import json
 import time
 import uuid
-from typing import Any, AsyncGenerator
+from collections.abc import AsyncGenerator
+from datetime import UTC, datetime
+from typing import Any
 
 import httpx
 import structlog
 from fastapi import APIRouter, Depends, Request
 from langchain_core.messages import HumanMessage
 from pydantic import BaseModel, Field
-from datetime import datetime, UTC
-from sse_starlette.sse import EventSourceResponse
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sse_starlette.sse import EventSourceResponse
 
 from app.config import settings
 from app.dependencies import get_current_user, get_db
 from app.errors import AppError
-from app.models import User, AgentStep, Thread, AgentRun
+from app.models import AgentRun, AgentStep, Thread, User
 from app.recorder import StepRecorder
 
 router = APIRouter(prefix="/api", tags=["Agent"])
@@ -44,6 +45,7 @@ logger = structlog.get_logger()
 
 
 # ── Request / Response Models ─────────────────────────────────────────────────
+
 
 class CreateThreadRequest(BaseModel):
     title: str = Field(default="New Thread", min_length=1, max_length=120)
@@ -60,6 +62,7 @@ class RunRequest(BaseModel):
 
 # ── Helper: translate_event ───────────────────────────────────────────────────
 
+
 def translate_event(mode: str, chunk: Any, run_id: str) -> list[tuple[str, dict]]:
     """Map LangGraph streaming modes onto OrqFlow SSE event contract."""
     events = []
@@ -69,22 +72,61 @@ def translate_event(mode: str, chunk: Any, run_id: str) -> list[tuple[str, dict]
             if not isinstance(update, dict):
                 continue
             step_index = update.get("step_count", 0)
-            events.append(("node_start", {"run_id": run_id, "node": node_name, "step_index": step_index, "ts": ts}))
+            events.append(
+                (
+                    "node_start",
+                    {"run_id": run_id, "node": node_name, "step_index": step_index, "ts": ts},
+                )
+            )
             if node_name == "supervisor" and "next" in update:
-                events.append(("routing", {"run_id": run_id, "next_agent": update["next"], "reasoning": update.get("routing_reasoning", "")}))
-            events.append(("node_end", {"run_id": run_id, "node": node_name, "step_index": step_index, "latency_ms": 0, "ts": ts}))
-            if node_name == "responder" and "messages" in update and isinstance(update["messages"], list) and update["messages"]:
+                events.append(
+                    (
+                        "routing",
+                        {
+                            "run_id": run_id,
+                            "next_agent": update["next"],
+                            "reasoning": update.get("routing_reasoning", ""),
+                        },
+                    )
+                )
+            events.append(
+                (
+                    "node_end",
+                    {
+                        "run_id": run_id,
+                        "node": node_name,
+                        "step_index": step_index,
+                        "latency_ms": 0,
+                        "ts": ts,
+                    },
+                )
+            )
+            if (
+                node_name == "responder"
+                and "messages" in update
+                and isinstance(update["messages"], list)
+                and update["messages"]
+            ):
                 last_msg = update["messages"][-1]
                 if hasattr(last_msg, "content") and last_msg.content:
-                    events.append(("responder_message", {"run_id": run_id, "node": "responder", "text": str(last_msg.content)}))
-            events.append(("step", {"node": node_name, "next": update.get("next"), "step_count": step_index}))
+                    events.append(
+                        (
+                            "responder_message",
+                            {"run_id": run_id, "node": "responder", "text": str(last_msg.content)},
+                        )
+                    )
+            events.append(
+                ("step", {"node": node_name, "next": update.get("next"), "step_count": step_index})
+            )
     elif mode == "messages":
         if isinstance(chunk, tuple) and len(chunk) >= 1:
             msg = chunk[0]
             metadata = chunk[1] if len(chunk) > 1 and isinstance(chunk[1], dict) else {}
             node_name = metadata.get("langgraph_node", getattr(msg, "name", ""))
             if node_name == "responder" and hasattr(msg, "content") and msg.content:
-                events.append(("token", {"run_id": run_id, "node": "responder", "token": str(msg.content)}))
+                events.append(
+                    ("token", {"run_id": run_id, "node": "responder", "token": str(msg.content)})
+                )
     elif mode == "custom":
         if isinstance(chunk, dict) and "event_type" in chunk:
             evt_type = chunk["event_type"]
@@ -92,13 +134,18 @@ def translate_event(mode: str, chunk: Any, run_id: str) -> list[tuple[str, dict]
                 events.append((evt_type, {"run_id": run_id, **chunk, "ts": ts}))
             # Bug 7 fix: surface model_switch events so frontend can notify user
             elif evt_type == "model_switch":
-                events.append(("model_switch", {
-                    "run_id": run_id,
-                    "from_model": chunk.get("from_model", "unknown"),
-                    "to_model": chunk.get("to_model", "unknown"),
-                    "reason": chunk.get("reason", "error"),
-                    "ts": ts,
-                }))
+                events.append(
+                    (
+                        "model_switch",
+                        {
+                            "run_id": run_id,
+                            "from_model": chunk.get("from_model", "unknown"),
+                            "to_model": chunk.get("to_model", "unknown"),
+                            "reason": chunk.get("reason", "error"),
+                            "ts": ts,
+                        },
+                    )
+                )
     return events
 
 
@@ -114,6 +161,7 @@ async def _get_thread_for_user(
 
 
 # ── Thread Management ─────────────────────────────────────────────────────────
+
 
 @router.post("/threads", status_code=201)
 async def create_thread(
@@ -148,6 +196,7 @@ async def list_threads(
 
 
 # ── Run (SSE Streaming) ───────────────────────────────────────────────────────
+
 
 @router.post("/threads/{thread_id}/run")
 async def run_agent(
@@ -197,7 +246,11 @@ async def run_agent(
         try:
             thread = await _get_thread_for_user(db, thread_uuid, user.id)
             if thread is None:
-                new_thread = Thread(id=thread_uuid, user_id=user.id, title=(body.message[:35] + "...") if len(body.message) > 35 else body.message)
+                new_thread = Thread(
+                    id=thread_uuid,
+                    user_id=user.id,
+                    title=(body.message[:35] + "...") if len(body.message) > 35 else body.message,
+                )
                 db.add(new_thread)
                 await db.flush()
 
@@ -221,7 +274,9 @@ async def run_agent(
         async with StepRecorder.for_run(thread_id=thread_id, run_id=run_uuid) as recorder:
             config["configurable"]["step_recorder"] = recorder
             try:
-                async for mode, chunk in graph.astream(input_state, config=config, stream_mode=["updates", "messages", "custom"]):
+                async for mode, chunk in graph.astream(
+                    input_state, config=config, stream_mode=["updates", "messages", "custom"]
+                ):
                     for event_name, payload in translate_event(mode, chunk, run_id):
                         if event_name in ("node_start", "node_end", "tool_call", "tool_result"):
                             await recorder._insert(
@@ -271,12 +326,14 @@ async def run_agent(
                     user_message = f"❌ Agent encountered an error: {exc}"
                 yield {
                     "event": "error",
-                    "data": json.dumps({
-                        "run_id": run_id,
-                        "message": user_message,
-                        "error": str(exc),
-                        "is_rate_limit": is_rate_limit,
-                    }),
+                    "data": json.dumps(
+                        {
+                            "run_id": run_id,
+                            "message": user_message,
+                            "error": str(exc),
+                            "is_rate_limit": is_rate_limit,
+                        }
+                    ),
                 }
 
     return EventSourceResponse(
@@ -286,6 +343,7 @@ async def run_agent(
 
 
 # ── Trace & Observability ─────────────────────────────────────────────────────
+
 
 @router.get("/threads/{thread_id}/trace")
 async def get_thread_trace(
@@ -375,6 +433,7 @@ async def get_run_trace(
 
 # ── Facts ─────────────────────────────────────────────────────────────────────
 
+
 @router.get("/facts")
 @router.get("/users/me/facts")
 async def list_facts(
@@ -409,6 +468,7 @@ async def delete_fact(
 
 # ── MCP Health ────────────────────────────────────────────────────────────────
 
+
 @router.get("/mcp/health")
 async def check_mcp_health(
     user: User = Depends(get_current_user),
@@ -424,7 +484,12 @@ async def check_mcp_health(
         for name, url in urls.items():
             try:
                 res = await client.get(url)
-                status[name] = "ok" if res.status_code in (200, 202, 406) else f"error ({res.status_code})"
+                status[name] = (
+                    "ok" if res.status_code in (200, 202, 406) else f"error ({res.status_code})"
+                )
             except Exception as exc:
                 status[name] = f"unreachable ({type(exc).__name__})"
-    return {"status": "ok" if all(v == "ok" for v in status.values()) else "degraded", "servers": status}
+    return {
+        "status": "ok" if all(v == "ok" for v in status.values()) else "degraded",
+        "servers": status,
+    }

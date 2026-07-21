@@ -8,12 +8,15 @@ Fixes applied:
   - Bug 7: ainvoke() now emits a model_switch custom LangGraph event so the SSE
     layer can surface a user-visible notification when models switch.
 """
+
 from __future__ import annotations
 
+from collections.abc import AsyncGenerator
+from typing import Any
+
 import structlog
-from typing import Any, AsyncGenerator
-from langchain_core.runnables import Runnable
 from langchain_core.messages import AIMessage
+from langchain_core.runnables import Runnable
 
 logger = structlog.get_logger(__name__)
 
@@ -23,6 +26,7 @@ class FallbackLLM(Runnable):
     Wraps a primary LLM and fallback LLMs. If the primary fails due to rate limit (429)
     or quota errors, automatically logs and iterates through fallback models sequentially.
     """
+
     def __init__(
         self,
         primary: Runnable,
@@ -36,7 +40,10 @@ class FallbackLLM(Runnable):
         self.primary_name = primary_name
         self.fallback_name = fallback_name
         self.additional_fallbacks = additional_fallbacks or []
-        self.chain = [(primary_name, primary), (fallback_name, fallback)] + self.additional_fallbacks
+        self.chain = [
+            (primary_name, primary),
+            (fallback_name, fallback),
+        ] + self.additional_fallbacks
 
     def _should_fallback(self, exc: Exception) -> bool:
         """
@@ -69,7 +76,7 @@ class FallbackLLM(Runnable):
     def __getattr__(self, name: str) -> Any:
         return getattr(self.primary, name)
 
-    def bind_tools(self, tools: Any, **kwargs: Any) -> "FallbackLLM":
+    def bind_tools(self, tools: Any, **kwargs: Any) -> FallbackLLM:
         return FallbackLLM(
             self.primary.bind_tools(tools, **kwargs),
             self.fallback.bind_tools(tools, **kwargs),
@@ -80,14 +87,15 @@ class FallbackLLM(Runnable):
             ],
         )
 
-    def with_structured_output(self, schema: Any, **kwargs: Any) -> "FallbackLLM":
+    def with_structured_output(self, schema: Any, **kwargs: Any) -> FallbackLLM:
         return FallbackLLM(
             self.primary.with_structured_output(schema, **kwargs),
             self.fallback.with_structured_output(schema, **kwargs),
             self.primary_name,
             self.fallback_name,
             additional_fallbacks=[
-                (name, m.with_structured_output(schema, **kwargs)) for name, m in self.additional_fallbacks
+                (name, m.with_structured_output(schema, **kwargs))
+                for name, m in self.additional_fallbacks
             ],
         )
 
@@ -115,13 +123,16 @@ class FallbackLLM(Runnable):
                 # yield a model_switch SSE event to the frontend.
                 try:
                     from langchain_core.callbacks.manager import adispatch_custom_event
+
                     await adispatch_custom_event(
                         "model_switch",
                         {
                             "event_type": "model_switch",
                             "from_model": name,
                             "to_model": next_name,
-                            "reason": "rate_limit" if "429" in str(exc).lower() or "rate" in str(exc).lower() else "error",
+                            "reason": "rate_limit"
+                            if "429" in str(exc).lower() or "rate" in str(exc).lower()
+                            else "error",
                         },
                         config=config,
                     )

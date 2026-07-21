@@ -21,18 +21,17 @@ import pytest
 
 # Import validation function and tools directly — no MCP transport needed
 from mcp_servers.db_server import (
-    _validate_select_only,
     _validate_company_ops_scope,
-    list_tables,
+    _validate_select_only,
     describe_table,
+    list_tables,
     query_database,
 )
 
-
 # ── SQL Validation ────────────────────────────────────────────────────────────
 
-class TestValidateSelectOnly:
 
+class TestValidateSelectOnly:
     def test_simple_select_passes(self):
         # Should not raise
         _validate_select_only("SELECT * FROM employees")
@@ -84,7 +83,6 @@ class TestValidateSelectOnly:
 
 
 class TestCompanyOpsScope:
-
     def test_company_ops_table_passes(self):
         _validate_company_ops_scope("SELECT * FROM employees")
 
@@ -98,6 +96,7 @@ class TestCompanyOpsScope:
 
 
 # ── list_tables ───────────────────────────────────────────────────────────────
+
 
 @pytest.mark.anyio
 async def test_list_tables_returns_all_tables():
@@ -116,6 +115,7 @@ async def test_list_tables_returns_strings():
 
 
 # ── describe_table ────────────────────────────────────────────────────────────
+
 
 @pytest.mark.anyio
 async def test_describe_employees_table():
@@ -140,6 +140,7 @@ async def test_describe_all_known_tables():
 
 
 # ── query_database (mock mode) ────────────────────────────────────────────────
+
 
 @pytest.mark.anyio
 async def test_query_employees_returns_rows():

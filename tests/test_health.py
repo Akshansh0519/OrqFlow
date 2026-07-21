@@ -55,6 +55,7 @@ async def test_health_endpoint_is_fast(async_client: AsyncClient):
     (Production target: <100ms — relaxed here for CI without real DB/Redis.)
     """
     import time
+
     start = time.monotonic()
     response = await async_client.get("/api/health")
     elapsed_ms = (time.monotonic() - start) * 1000

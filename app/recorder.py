@@ -38,9 +38,9 @@ from __future__ import annotations
 import asyncio
 import time
 import uuid
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
-from typing import AsyncGenerator
 
 import structlog
 from sqlalchemy import text
@@ -82,12 +82,13 @@ class StepRecorder:
         thread_id: str,
         run_id: uuid.UUID,
         session: AsyncSession | None = None,
-    ) -> AsyncGenerator["StepRecorder", None]:
+    ) -> AsyncGenerator[StepRecorder, None]:
         """
         Async context manager that creates a recorder and commits/closes
         the session when the run ends.
         """
         from app.database import get_async_session
+
         created_session = False
         if session is None:
             session = get_async_session()()
@@ -152,6 +153,7 @@ class StepRecorder:
         Called automatically at the start of _insert() when _session_healthy=False.
         """
         from app.database import get_async_session
+
         try:
             if self._session:
                 await self._session.close()
@@ -174,7 +176,7 @@ class StepRecorder:
         event_type: str,
         tool_name: str | None = None,
         payload_preview: str | None = None,
-    ) -> AsyncGenerator["StepRecorder", None]:
+    ) -> AsyncGenerator[StepRecorder, None]:
         """
         Async context manager that records a start row and then, on exit,
         updates it with elapsed latency.

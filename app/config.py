@@ -148,8 +148,7 @@ class Settings(BaseSettings):
         weak = [name for name, value in secrets.items() if len(value) < 32]
         if weak:
             raise ValueError(
-                "Production secrets must be at least 32 characters: "
-                + ", ".join(weak)
+                "Production secrets must be at least 32 characters: " + ", ".join(weak)
             )
         if self.ACCESS_TOKEN_SECRET == self.REFRESH_TOKEN_SECRET:
             raise ValueError("ACCESS_TOKEN_SECRET and REFRESH_TOKEN_SECRET must differ")

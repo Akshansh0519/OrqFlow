@@ -1,4 +1,3 @@
-
 """
 app/graph/memory.py — Checkpointer and long-term store factories.
 
@@ -46,6 +45,7 @@ async def get_checkpointer(use_memory: bool = False):
     """
     if use_memory or settings.USE_IN_MEMORY_STORAGE:
         from langgraph.checkpoint.memory import MemorySaver
+
         logger.info("checkpointer_mode", mode="memory")
         return MemorySaver()
 
@@ -71,6 +71,7 @@ async def get_checkpointer(use_memory: bool = False):
             fallback="MemorySaver",
         )
         from langgraph.checkpoint.memory import MemorySaver
+
         return MemorySaver()
 
 
@@ -87,14 +88,15 @@ async def get_store(use_memory: bool = False):
     """
     if use_memory or settings.USE_IN_MEMORY_STORAGE:
         from langgraph.store.memory import InMemoryStore
+
         logger.info("store_mode", mode="memory")
         return InMemoryStore()
 
     # Production: Postgres via asyncpg
     try:
-        from psycopg_pool import AsyncConnectionPool
-        from psycopg.rows import dict_row
         from langgraph.store.postgres.aio import AsyncPostgresStore
+        from psycopg.rows import dict_row
+        from psycopg_pool import AsyncConnectionPool
 
         db_url = settings.DATABASE_URL.replace("postgresql+asyncpg://", "postgresql://")
         pool = AsyncConnectionPool(
@@ -119,4 +121,5 @@ async def get_store(use_memory: bool = False):
             fallback="InMemoryStore",
         )
         from langgraph.store.memory import InMemoryStore
+
         return InMemoryStore()

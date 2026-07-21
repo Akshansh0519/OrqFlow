@@ -4,17 +4,19 @@ Revision ID: 002
 Revises: 001
 Create Date: 2026-06-27
 """
+
 from __future__ import annotations
 
-from typing import Sequence, Union
+from collections.abc import Sequence
 
 import sqlalchemy as sa
+
 from alembic import op
 
 revision: str = "002"
-down_revision: Union[str, None] = "001"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = "001"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
@@ -85,7 +87,9 @@ def upgrade() -> None:
 
     # Grant select permissions
     op.execute("GRANT SELECT ON ALL TABLES IN SCHEMA company_ops TO orqflow_readonly;")
-    op.execute("ALTER DEFAULT PRIVILEGES IN SCHEMA company_ops GRANT SELECT ON TABLES TO orqflow_readonly;")
+    op.execute(
+        "ALTER DEFAULT PRIVILEGES IN SCHEMA company_ops GRANT SELECT ON TABLES TO orqflow_readonly;"
+    )
 
     # Seed data
     op.bulk_insert(
@@ -109,8 +113,20 @@ def upgrade() -> None:
         tasks_table,
         [
             {"id": 1, "project_id": 1, "assignee_id": 1, "title": "Set up CI", "done": True},
-            {"id": 2, "project_id": 1, "assignee_id": 3, "title": "Write auth module", "done": True},
-            {"id": 3, "project_id": 1, "assignee_id": 1, "title": "Build MCP servers", "done": False},
+            {
+                "id": 2,
+                "project_id": 1,
+                "assignee_id": 3,
+                "title": "Write auth module",
+                "done": True,
+            },
+            {
+                "id": 3,
+                "project_id": 1,
+                "assignee_id": 1,
+                "title": "Build MCP servers",
+                "done": False,
+            },
         ],
     )
 

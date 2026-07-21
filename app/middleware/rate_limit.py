@@ -19,7 +19,8 @@ Graceful Degradation (§17.5.4):
 from __future__ import annotations
 
 import time
-from typing import Callable, Any
+from collections.abc import Callable
+from typing import Any
 
 import structlog
 from fastapi import Request, Response
@@ -39,6 +40,7 @@ def get_redis_client() -> Any:
     if _redis_client is None:
         try:
             import redis.asyncio as redis
+
             _redis_client = redis.Redis.from_url(
                 settings.REDIS_URL,
                 **settings.redis_client_kwargs,
@@ -57,6 +59,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             if auth_header and auth_header.startswith("Bearer "):
                 try:
                     import jwt
+
                     token = auth_header.split(" ")[1]
                     payload = jwt.decode(token, options={"verify_signature": False})
                     user_key = payload.get("sub", "anon")
@@ -78,7 +81,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                     pipe.zcard(key)
                     pipe.expire(key, window + 1)
                     results = await pipe.execute()
-                
+
                 request_count = results[2]
                 if request_count > limit:
                     logger.warning(

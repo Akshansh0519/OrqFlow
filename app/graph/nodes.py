@@ -38,7 +38,6 @@ import warnings
 import structlog
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_core.tools import BaseTool
-from langgraph.graph import END
 from langgraph.types import Command
 from pydantic import BaseModel
 
@@ -49,12 +48,14 @@ with warnings.catch_warnings():
     from langgraph.prebuilt import create_react_agent  # type: ignore[import]
 
 from typing import Literal
+
 from langchain_core.runnables import RunnableConfig
+
 from app.config import settings
 from app.graph.prompts import (
-    SUPERVISOR_SYSTEM_PROMPT,
-    RESPONDER_SYSTEM_PROMPT,
     FACT_EXTRACTION_SYSTEM_PROMPT,
+    RESPONDER_SYSTEM_PROMPT,
+    SUPERVISOR_SYSTEM_PROMPT,
 )
 from app.graph.state import MAX_STEPS, AgentState
 
@@ -74,6 +75,7 @@ class RouterOutput(BaseModel):
     Structured output from the supervisor LLM.
     Using Pydantic so LangChain's with_structured_output works.
     """
+
     next: Literal["researcher", "analyst", "coder", "FINISH"]
     reasoning: str
 
@@ -85,6 +87,7 @@ class FactExtractionOutput(BaseModel):
 
 
 # ── Supervisor node ───────────────────────────────────────────────────────────
+
 
 def make_supervisor_node(llm):
     """
@@ -130,8 +133,10 @@ def make_supervisor_node(llm):
         # wasting another LLM call on the weakened fallback model.
         if recent_messages:
             last_msg = recent_messages[-1]
-            is_ai_msg = hasattr(last_msg, 'content') and hasattr(last_msg, 'type') and last_msg.type == 'ai'
-            has_no_tool_calls = not (hasattr(last_msg, 'tool_calls') and last_msg.tool_calls)
+            is_ai_msg = (
+                hasattr(last_msg, "content") and hasattr(last_msg, "type") and last_msg.type == "ai"
+            )
+            has_no_tool_calls = not (hasattr(last_msg, "tool_calls") and last_msg.tool_calls)
             # If the last message is a completed AI response with no pending tool calls,
             # and a specialist has already been called this run (step > 0), go to FINISH.
             if is_ai_msg and has_no_tool_calls and step > 0:
@@ -186,7 +191,9 @@ def make_supervisor_node(llm):
                 attempted=result.next,
                 thread_id=state.get("thread_id"),
             )
-            result = RouterOutput(next="FINISH", reasoning="Redirected — specialist previously errored.")
+            result = RouterOutput(
+                next="FINISH", reasoning="Redirected — specialist previously errored."
+            )
 
         goto = result.next if result.next in SPECIALIST_NAMES else "responder"
 
@@ -202,6 +209,7 @@ def make_supervisor_node(llm):
 
 
 # ── Specialist node factory ───────────────────────────────────────────────────
+
 
 def make_specialist_node(name: str, llm, tools: list[BaseTool], system_prompt: str):
     """
@@ -262,12 +270,13 @@ def make_specialist_node(name: str, llm, tools: list[BaseTool], system_prompt: s
         all_msgs = list(state.get("messages", []))
         # Always include the original HumanMessage + last N messages
         from langchain_core.messages import HumanMessage as _HM
+
         human_msgs = [m for m in all_msgs if isinstance(m, _HM)]
         recent_msgs = all_msgs[-SPECIALIST_CONTEXT:]
         # Merge: first HumanMessage + recent, deduplicated preserving order
         seen_ids = set()
         merged = []
-        for m in (human_msgs[-1:] + recent_msgs):
+        for m in human_msgs[-1:] + recent_msgs:
             msg_id = id(m)
             if msg_id not in seen_ids:
                 seen_ids.add(msg_id)
@@ -335,7 +344,10 @@ def make_specialist_node(name: str, llm, tools: list[BaseTool], system_prompt: s
 
 def make_responder_node(llm):
     """Factory: build the final responder node."""
-    async def responder_node(state: AgentState, config: RunnableConfig | None = None, *, store=None) -> Command:
+
+    async def responder_node(
+        state: AgentState, config: RunnableConfig | None = None, *, store=None
+    ) -> Command:
         config = config or {}
         recorder = config.get("configurable", {}).get("step_recorder")
         user_id = config.get("configurable", {}).get("user_id", "anonymous")
@@ -346,11 +358,15 @@ def make_responder_node(llm):
                 if hasattr(store, "asearch"):
                     items = await store.asearch((str(user_id), "facts"))
                     if items:
-                        facts_text = "\n".join(f"- {i.key}: {i.value.get('value', '')}" for i in items)
+                        facts_text = "\n".join(
+                            f"- {i.key}: {i.value.get('value', '')}" for i in items
+                        )
                 elif hasattr(store, "search"):
                     items = store.search((str(user_id), "facts"))
                     if items:
-                        facts_text = "\n".join(f"- {i.key}: {i.value.get('value', '')}" for i in items)
+                        facts_text = "\n".join(
+                            f"- {i.key}: {i.value.get('value', '')}" for i in items
+                        )
             except Exception as exc:
                 logger.warning("responder_fetch_facts_failed", exc=str(exc))
 
@@ -360,7 +376,11 @@ def make_responder_node(llm):
 
         messages = [SystemMessage(content=system_msg)] + list(state["messages"])
         if messages and isinstance(messages[-1], AIMessage):
-            messages.append(HumanMessage(content="Please synthesize all actions and results from the specialists above into the final markdown response for the user."))
+            messages.append(
+                HumanMessage(
+                    content="Please synthesize all actions and results from the specialists above into the final markdown response for the user."
+                )
+            )
 
         async def _invoke():
             try:
@@ -403,12 +423,16 @@ def make_fact_extraction_node(llm):
     """Factory: build the fact extraction node."""
     extractor = llm.with_structured_output(FactExtractionOutput)
 
-    async def fact_extraction_node(state: AgentState, config: RunnableConfig | None = None, *, store=None) -> dict:
+    async def fact_extraction_node(
+        state: AgentState, config: RunnableConfig | None = None, *, store=None
+    ) -> dict:
         config = config or {}
         recorder = config.get("configurable", {}).get("step_recorder")
         user_id = config.get("configurable", {}).get("user_id", "anonymous")
 
-        messages = [SystemMessage(content=FACT_EXTRACTION_SYSTEM_PROMPT)] + list(state["messages"][-6:])
+        messages = [SystemMessage(content=FACT_EXTRACTION_SYSTEM_PROMPT)] + list(
+            state["messages"][-6:]
+        )
 
         async def _invoke():
             try:
@@ -422,7 +446,14 @@ def make_fact_extraction_node(llm):
         else:
             result = await _invoke()
 
-        if isinstance(result, FactExtractionOutput) and result.should_remember and result.key and result.value and store and user_id != "anonymous":
+        if (
+            isinstance(result, FactExtractionOutput)
+            and result.should_remember
+            and result.key
+            and result.value
+            and store
+            and user_id != "anonymous"
+        ):
             try:
                 if hasattr(store, "aput"):
                     await store.aput((str(user_id), "facts"), result.key, {"value": result.value})

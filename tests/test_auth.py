@@ -31,6 +31,7 @@ VALID_USER = {
 
 # ── Register ──────────────────────────────────────────────────────────────────
 
+
 @pytest.mark.anyio
 async def test_register_returns_201(async_client: AsyncClient):
     resp = await async_client.post(REGISTER_URL, json=VALID_USER)
@@ -39,11 +40,14 @@ async def test_register_returns_201(async_client: AsyncClient):
 
 @pytest.mark.anyio
 async def test_register_response_shape(async_client: AsyncClient):
-    resp = await async_client.post(REGISTER_URL, json={
-        "email": "shape@example.com",
-        "username": "shapeuser",
-        "password": "password1234",
-    })
+    resp = await async_client.post(
+        REGISTER_URL,
+        json={
+            "email": "shape@example.com",
+            "username": "shapeuser",
+            "password": "password1234",
+        },
+    )
     body = resp.json()
     assert "user" in body
     assert "access_token" in body
@@ -59,58 +63,71 @@ async def test_register_duplicate_email_returns_409(async_client: AsyncClient):
     payload = {"email": "dup@example.com", "username": "dup1", "password": "password1234"}
     await async_client.post(REGISTER_URL, json=payload)
     # Same email, different username
-    resp = await async_client.post(REGISTER_URL, json={
-        **payload, "username": "dup2"
-    })
+    resp = await async_client.post(REGISTER_URL, json={**payload, "username": "dup2"})
     assert resp.status_code == 409
     assert resp.json()["code"] == "DUPLICATE_EMAIL"
 
 
 @pytest.mark.anyio
 async def test_register_duplicate_username_returns_409(async_client: AsyncClient):
-    await async_client.post(REGISTER_URL, json={
-        "email": "first@example.com", "username": "sameuser", "password": "password1234"
-    })
-    resp = await async_client.post(REGISTER_URL, json={
-        "email": "second@example.com", "username": "sameuser", "password": "password1234"
-    })
+    await async_client.post(
+        REGISTER_URL,
+        json={"email": "first@example.com", "username": "sameuser", "password": "password1234"},
+    )
+    resp = await async_client.post(
+        REGISTER_URL,
+        json={"email": "second@example.com", "username": "sameuser", "password": "password1234"},
+    )
     assert resp.status_code == 409
     assert resp.json()["code"] == "DUPLICATE_USERNAME"
 
 
 @pytest.mark.anyio
 async def test_register_short_password_returns_400(async_client: AsyncClient):
-    resp = await async_client.post(REGISTER_URL, json={
-        "email": "shortpass@example.com",
-        "username": "shortpass",
-        "password": "short",   # < 8 chars
-    })
+    resp = await async_client.post(
+        REGISTER_URL,
+        json={
+            "email": "shortpass@example.com",
+            "username": "shortpass",
+            "password": "short",  # < 8 chars
+        },
+    )
     assert resp.status_code == 400  # Pydantic validation
 
 
 @pytest.mark.anyio
 async def test_register_invalid_email_returns_400(async_client: AsyncClient):
-    resp = await async_client.post(REGISTER_URL, json={
-        "email": "not-an-email",
-        "username": "bademail",
-        "password": "password1234",
-    })
+    resp = await async_client.post(
+        REGISTER_URL,
+        json={
+            "email": "not-an-email",
+            "username": "bademail",
+            "password": "password1234",
+        },
+    )
     assert resp.status_code == 400
 
 
 # ── Login ─────────────────────────────────────────────────────────────────────
 
+
 @pytest.mark.anyio
 async def test_login_returns_200(async_client: AsyncClient):
-    await async_client.post(REGISTER_URL, json={
-        "email": "login@example.com",
-        "username": "loginuser",
-        "password": "mypassword123",
-    })
-    resp = await async_client.post(LOGIN_URL, json={
-        "email": "login@example.com",
-        "password": "mypassword123",
-    })
+    await async_client.post(
+        REGISTER_URL,
+        json={
+            "email": "login@example.com",
+            "username": "loginuser",
+            "password": "mypassword123",
+        },
+    )
+    resp = await async_client.post(
+        LOGIN_URL,
+        json={
+            "email": "login@example.com",
+            "password": "mypassword123",
+        },
+    )
     assert resp.status_code == 200
     body = resp.json()
     assert "access_token" in body
@@ -119,25 +136,34 @@ async def test_login_returns_200(async_client: AsyncClient):
 
 @pytest.mark.anyio
 async def test_login_wrong_password_returns_401(async_client: AsyncClient):
-    await async_client.post(REGISTER_URL, json={
-        "email": "wrongpass@example.com",
-        "username": "wrongpassuser",
-        "password": "correctpassword",
-    })
-    resp = await async_client.post(LOGIN_URL, json={
-        "email": "wrongpass@example.com",
-        "password": "wrongpassword",
-    })
+    await async_client.post(
+        REGISTER_URL,
+        json={
+            "email": "wrongpass@example.com",
+            "username": "wrongpassuser",
+            "password": "correctpassword",
+        },
+    )
+    resp = await async_client.post(
+        LOGIN_URL,
+        json={
+            "email": "wrongpass@example.com",
+            "password": "wrongpassword",
+        },
+    )
     assert resp.status_code == 401
     assert resp.json()["code"] == "INVALID_CREDENTIALS"
 
 
 @pytest.mark.anyio
 async def test_login_unknown_email_returns_401(async_client: AsyncClient):
-    resp = await async_client.post(LOGIN_URL, json={
-        "email": "ghost@example.com",
-        "password": "password123",
-    })
+    resp = await async_client.post(
+        LOGIN_URL,
+        json={
+            "email": "ghost@example.com",
+            "password": "password123",
+        },
+    )
     assert resp.status_code == 401
     # Same error code — don't reveal whether the email exists
     assert resp.json()["code"] == "INVALID_CREDENTIALS"
@@ -145,13 +171,17 @@ async def test_login_unknown_email_returns_401(async_client: AsyncClient):
 
 # ── Refresh ───────────────────────────────────────────────────────────────────
 
+
 @pytest.mark.anyio
 async def test_refresh_returns_new_tokens(async_client: AsyncClient):
-    reg = await async_client.post(REGISTER_URL, json={
-        "email": "refresh@example.com",
-        "username": "refreshuser",
-        "password": "password1234",
-    })
+    reg = await async_client.post(
+        REGISTER_URL,
+        json={
+            "email": "refresh@example.com",
+            "username": "refreshuser",
+            "password": "password1234",
+        },
+    )
     refresh_token = reg.json()["refresh_token"]
 
     resp = await async_client.post(REFRESH_URL, json={"refresh_token": refresh_token})
@@ -170,11 +200,14 @@ async def test_refresh_with_invalid_token_returns_401(async_client: AsyncClient)
 @pytest.mark.anyio
 async def test_refresh_with_access_token_returns_401(async_client: AsyncClient):
     """Access tokens must not be accepted as refresh tokens."""
-    reg = await async_client.post(REGISTER_URL, json={
-        "email": "wrongtype@example.com",
-        "username": "wrongtypeuser",
-        "password": "password1234",
-    })
+    reg = await async_client.post(
+        REGISTER_URL,
+        json={
+            "email": "wrongtype@example.com",
+            "username": "wrongtypeuser",
+            "password": "password1234",
+        },
+    )
     access_token = reg.json()["access_token"]
 
     # Sending access token to the refresh endpoint should fail
@@ -183,6 +216,7 @@ async def test_refresh_with_access_token_returns_401(async_client: AsyncClient):
 
 
 # ── Protected route access ────────────────────────────────────────────────────
+
 
 @pytest.mark.anyio
 async def test_protected_route_without_token_returns_401(async_client: AsyncClient):
@@ -200,11 +234,14 @@ async def test_protected_route_without_token_returns_401(async_client: AsyncClie
 @pytest.mark.anyio
 async def test_tokens_are_non_empty_strings(async_client: AsyncClient):
     """Tokens must be non-trivial JWTs (three dot-separated parts)."""
-    resp = await async_client.post(REGISTER_URL, json={
-        "email": "tokencheck@example.com",
-        "username": "tokencheckuser",
-        "password": "password1234",
-    })
+    resp = await async_client.post(
+        REGISTER_URL,
+        json={
+            "email": "tokencheck@example.com",
+            "username": "tokencheckuser",
+            "password": "password1234",
+        },
+    )
     body = resp.json()
     access = body["access_token"]
     refresh = body["refresh_token"]

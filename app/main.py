@@ -23,8 +23,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.errors import register_error_handlers
-from app.middleware.request_id import RequestIDMiddleware
 from app.middleware.rate_limit import RateLimitMiddleware
+from app.middleware.request_id import RequestIDMiddleware
 from app.routers import health
 
 logger = structlog.get_logger()
@@ -48,9 +48,9 @@ async def lifespan(app: FastAPI):
     logger.info("orqflow_starting", version="0.1.0")
 
     # ── Phase 3: Memory + Tools + Graph ──────────────────────────────────────
+    from app.graph.builder import build_graph
     from app.graph.memory import get_checkpointer, get_store
     from app.graph.tools import load_agent_tools
-    from app.graph.builder import build_graph
 
     use_memory = settings.USE_IN_MEMORY_STORAGE
     app.state.checkpointer = await get_checkpointer(use_memory=use_memory)
@@ -126,7 +126,8 @@ def create_app() -> FastAPI:
 
     # ── Routers ────────────────────────────────────────────────────────────────
     # Phase 1: Auth
-    from app.routers import auth_router, agent_router
+    from app.routers import agent_router, auth_router
+
     app.include_router(health.router)
     app.include_router(auth_router.router)
     app.include_router(agent_router.router)

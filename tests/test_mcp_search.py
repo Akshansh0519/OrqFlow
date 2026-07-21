@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import pytest
 
-from mcp_servers.search_server import web_search, fetch_url
+from mcp_servers.search_server import fetch_url, web_search
 
 
 @pytest.mark.anyio

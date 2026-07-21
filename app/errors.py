@@ -64,9 +64,7 @@ def register_error_handlers(app) -> None:
         )
 
     @app.exception_handler(Exception)
-    async def unhandled_error_handler(
-        request: Request, exc: Exception
-    ) -> JSONResponse:
+    async def unhandled_error_handler(request: Request, exc: Exception) -> JSONResponse:
         """
         Catch-all for any exception that wasn't handled.
         Log it with structlog (preserves request context), return 500.

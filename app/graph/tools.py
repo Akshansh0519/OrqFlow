@@ -37,15 +37,16 @@ logger = structlog.get_logger()
 
 # ── Mock tool wrappers (test / offline mode) ──────────────────────────────────
 
+
 def _build_mock_tools() -> dict[str, list]:
     """
     Wrap mcp_server Python functions directly as LangChain tools.
     No HTTP required — imports from the local mcp_servers package.
     """
     # Import the raw async functions
-    from mcp_servers.db_server import query_database, list_tables, describe_table
-    from mcp_servers.search_server import web_search, fetch_url
-    from mcp_servers.files_server import read_file, write_file, list_files, lint_python
+    from mcp_servers.db_server import describe_table, list_tables, query_database
+    from mcp_servers.files_server import lint_python, list_files, read_file, write_file
+    from mcp_servers.search_server import fetch_url, web_search
 
     # LangChain's @tool decorator works on async functions
     # We re-decorate here so the tool name/description matches the MCP schema
@@ -103,6 +104,7 @@ def _build_mock_tools() -> dict[str, list]:
 
 # ── MCP HTTP tool loading (production) ────────────────────────────────────────
 
+
 async def _build_mcp_tools() -> dict[str, list]:
     """
     Load tools from the 3 HTTP MCP servers via MultiServerMCPClient.
@@ -133,8 +135,12 @@ async def _build_mcp_tools() -> dict[str, list]:
 
     # Partition by tool name prefix
     researcher_tools = [t for t in all_tools if t.name in {"web_search", "fetch_url"}]
-    analyst_tools = [t for t in all_tools if t.name in {"query_database", "list_tables", "describe_table"}]
-    coder_tools = [t for t in all_tools if t.name in {"read_file", "write_file", "list_files", "lint_python"}]
+    analyst_tools = [
+        t for t in all_tools if t.name in {"query_database", "list_tables", "describe_table"}
+    ]
+    coder_tools = [
+        t for t in all_tools if t.name in {"read_file", "write_file", "list_files", "lint_python"}
+    ]
 
     logger.info(
         "mcp_tools_loaded",
@@ -152,6 +158,7 @@ async def _build_mcp_tools() -> dict[str, list]:
 
 # ── Public factory ────────────────────────────────────────────────────────────
 
+
 async def load_agent_tools(use_mock: bool = False) -> dict[str, list]:
     """
     Load tools for all specialist agents.
@@ -167,6 +174,7 @@ async def load_agent_tools(use_mock: bool = False) -> dict[str, list]:
         return _build_mock_tools()
 
     import asyncio
+
     max_retries = 5
     base_delay = 1.0
 
@@ -176,8 +184,12 @@ async def load_agent_tools(use_mock: bool = False) -> dict[str, list]:
         except Exception as exc:
             if attempt == max_retries - 1:
                 logger.error("mcp_tools_failed_fatal", exc=str(exc), attempts=max_retries)
-                raise RuntimeError(f"Failed to connect to MCP servers after {max_retries} attempts: {exc}")
-            
-            delay = base_delay * (2 ** attempt)
-            logger.warning("mcp_tools_connection_retry", attempt=attempt+1, delay=delay, exc=str(exc))
+                raise RuntimeError(
+                    f"Failed to connect to MCP servers after {max_retries} attempts: {exc}"
+                )
+
+            delay = base_delay * (2**attempt)
+            logger.warning(
+                "mcp_tools_connection_retry", attempt=attempt + 1, delay=delay, exc=str(exc)
+            )
             await asyncio.sleep(delay)

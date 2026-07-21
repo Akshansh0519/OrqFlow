@@ -65,6 +65,7 @@ _MOCK_FETCH_CONTENT = (
 
 # ── Tools ─────────────────────────────────────────────────────────────────────
 
+
 @mcp.tool()
 async def web_search(query: str, max_results: int = 5) -> list[dict]:
     """
@@ -146,4 +147,5 @@ async def fetch_url(url: str) -> str:
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(mcp.http_app(), host="0.0.0.0", port=8002)

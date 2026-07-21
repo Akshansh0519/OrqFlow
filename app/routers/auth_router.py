@@ -33,6 +33,7 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 # ── Request / Response schemas ────────────────────────────────────────────────
 
+
 class RegisterRequest(BaseModel):
     email: EmailStr
     username: str = Field(min_length=3, max_length=50)
@@ -70,6 +71,7 @@ class TokenPairResponse(BaseModel):
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
+
 def _build_auth_response(user: User) -> AuthResponse:
     """Build the standard auth response with tokens for a user."""
     user_id = str(user.id)
@@ -86,6 +88,7 @@ def _build_auth_response(user: User) -> AuthResponse:
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
+
 
 @router.post("/register", status_code=201)
 async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)) -> AuthResponse:

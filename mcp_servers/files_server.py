@@ -24,18 +24,20 @@ Code execution is excluded. See orqflow_master_prompt.md §17 (Excluded Features
 
 from __future__ import annotations
 
-import subprocess
 import json
-from pathlib import Path
-
-from fastmcp import FastMCP
-from mcp_servers.shared_auth import verify_mcp_key
 
 # ── Sandbox root ──────────────────────────────────────────────────────────────
 # Reads WORKSPACE_ROOT env var so any deployment platform can override it.
 # Docker Compose: /workspace (named volume).  Render: /opt/render/project/src/workspace
 # Tests: WORKSPACE_ROOT=./workspace pytest  (auto-created as needed).
 import os as _os
+import subprocess
+from pathlib import Path
+
+from fastmcp import FastMCP
+
+from mcp_servers.shared_auth import verify_mcp_key
+
 WORKSPACE_ROOT = Path(_os.environ.get("WORKSPACE_ROOT", "/workspace")).resolve()
 
 
@@ -56,7 +58,13 @@ def _safe_resolve(user_path: str) -> Path:
     # so we also check for a leading slash explicitly for Unix-style absolute paths.
     p = Path(user_path)
     import re
-    if p.is_absolute() or user_path.startswith("/") or user_path.startswith("\\") or bool(re.match(r"^[a-zA-Z]:[/\\]", user_path)):
+
+    if (
+        p.is_absolute()
+        or user_path.startswith("/")
+        or user_path.startswith("\\")
+        or bool(re.match(r"^[a-zA-Z]:[/\\]", user_path))
+    ):
         raise ValueError(
             f"Path traversal rejected: {user_path!r} is an absolute path. "
             "All paths must be relative to the sandbox root."
@@ -91,6 +99,7 @@ mcp = FastMCP(
 
 # ── Tools ─────────────────────────────────────────────────────────────────────
 
+
 @mcp.tool()
 async def list_files(path: str = "") -> list[str]:
     """
@@ -111,10 +120,7 @@ async def list_files(path: str = "") -> list[str]:
     if target.is_file():
         return [str(target.relative_to(WORKSPACE_ROOT))]
 
-    return [
-        str(p.relative_to(WORKSPACE_ROOT))
-        for p in sorted(target.iterdir())
-    ]
+    return [str(p.relative_to(WORKSPACE_ROOT)) for p in sorted(target.iterdir())]
 
 
 @mcp.tool()
@@ -212,8 +218,8 @@ async def lint_python(path: str) -> dict:
         diagnostics = []
 
     issues = [
-        f"{d.get('filename','?')}:{d.get('location',{}).get('row','?')}: "
-        f"[{d.get('code','?')}] {d.get('message','?')}"
+        f"{d.get('filename', '?')}:{d.get('location', {}).get('row', '?')}: "
+        f"[{d.get('code', '?')}] {d.get('message', '?')}"
         for d in diagnostics
     ]
 
@@ -228,4 +234,5 @@ async def lint_python(path: str) -> dict:
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(mcp.http_app(), host="0.0.0.0", port=8003)

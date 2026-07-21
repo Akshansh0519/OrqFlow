@@ -50,11 +50,12 @@ class AgentState(TypedDict):
                             Prevents supervisor from re-routing to broken specialists.
                             (Bug 3 fix)
     """
+
     messages: Annotated[list[AnyMessage], add_messages]
     thread_id: str
     user_id: str
     run_id: str
-    next: str                    # set by supervisor, read by builder for routing
-    step_count: int              # incremented in supervisor node
-    tool_calls_this_run: int     # incremented by tool execution hooks
+    next: str  # set by supervisor, read by builder for routing
+    step_count: int  # incremented in supervisor node
+    tool_calls_this_run: int  # incremented by tool execution hooks
     failed_specialists: list[str]  # Bug 3: tracks errored specialists this run

@@ -11,6 +11,7 @@ known caller, not: who is this user?
 from __future__ import annotations
 
 from fastmcp.server.dependencies import get_http_request
+
 from app.config import settings
 
 

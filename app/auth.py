@@ -13,7 +13,7 @@ token cannot be used as an access token and vice versa.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, UTC
+from datetime import UTC, datetime, timedelta
 
 import bcrypt
 import jwt
@@ -21,8 +21,8 @@ import jwt
 from app.config import settings
 from app.errors import AppError
 
-
 # ── Password Hashing ─────────────────────────────────────────────────────────
+
 
 def hash_password(password: str) -> str:
     """Hash a plaintext password using bcrypt."""
@@ -41,6 +41,7 @@ def verify_password(plain: str, hashed: str) -> bool:
 
 
 # ── JWT ───────────────────────────────────────────────────────────────────────
+
 
 def create_access_token(user_id: str) -> str:
     """Create a short-lived access token."""
@@ -79,9 +80,7 @@ def decode_token(token: str, *, token_type: str = "access") -> dict:
         AppError(401): If the token is expired, invalid, or of the wrong type.
     """
     secret = (
-        settings.ACCESS_TOKEN_SECRET
-        if token_type == "access"
-        else settings.REFRESH_TOKEN_SECRET
+        settings.ACCESS_TOKEN_SECRET if token_type == "access" else settings.REFRESH_TOKEN_SECRET
     )
     try:
         payload = jwt.decode(token, secret, algorithms=["HS256"])

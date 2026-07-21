@@ -18,11 +18,9 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from langchain_core.messages import HumanMessage
-from pydantic import BaseModel
 
 from app.config import settings
-from app.graph.nodes import make_supervisor_node, RouterOutput
-
+from app.graph.nodes import RouterOutput, make_supervisor_node
 
 EVAL_DATASET = [
     {"prompt": "Search the web for LangGraph tutorials", "expected": "researcher"},
@@ -31,7 +29,10 @@ EVAL_DATASET = [
     {"prompt": "Query the database for all employees in Engineering", "expected": "analyst"},
     {"prompt": "List the tables available in the company_ops schema", "expected": "analyst"},
     {"prompt": "What is the average salary of employees in Product?", "expected": "analyst"},
-    {"prompt": "Write a Python script to parse CSV files and calculate averages", "expected": "coder"},
+    {
+        "prompt": "Write a Python script to parse CSV files and calculate averages",
+        "expected": "coder",
+    },
     {"prompt": "Create a regex pattern to validate email addresses", "expected": "coder"},
     {"prompt": "Refactor this function to use async/await", "expected": "coder"},
     {"prompt": "Hello, how are you today?", "expected": "FINISH"},
@@ -42,6 +43,7 @@ EVAL_DATASET = [
 
 class MockRouterChain:
     """Mock structured router output for offline CI / test evaluation."""
+
     async def ainvoke(self, messages: Any) -> RouterOutput:
         content = ""
         if isinstance(messages, list) and messages:
@@ -75,6 +77,7 @@ async def run_evaluation() -> None:
     else:
         print("[INFO] Running live evaluation against Anthropic API.")
         from langchain_anthropic import ChatAnthropic
+
         llm = ChatAnthropic(model=settings.ROUTER_LLM_MODEL, temperature=0)
 
     supervisor = make_supervisor_node(llm)
@@ -98,7 +101,7 @@ async def run_evaluation() -> None:
         # Supervisor updates 'next' in command.update
         actual = command.update.get("next", "UNKNOWN")
 
-        is_correct = (actual == expected)
+        is_correct = actual == expected
         if is_correct:
             correct += 1
             status = "PASS"

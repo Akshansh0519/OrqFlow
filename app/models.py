@@ -17,7 +17,7 @@ See prep/cards/card-04-postgres-store.md for why.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 
 from sqlalchemy import ForeignKey, Index, Integer, String, Text
 from sqlalchemy.orm import (
@@ -54,9 +54,7 @@ class Thread(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
-    title: Mapped[str] = mapped_column(
-        String(120), nullable=False, default="New conversation"
-    )
+    title: Mapped[str] = mapped_column(String(120), nullable=False, default="New conversation")
     created_at: Mapped[datetime] = mapped_column(
         nullable=False,
         default=lambda: datetime.now(UTC).replace(tzinfo=None),
@@ -92,9 +90,7 @@ class AgentRun(Base):
     ended_at: Mapped[datetime | None] = mapped_column(nullable=True, default=None)
     total_latency_ms: Mapped[int | None] = mapped_column(nullable=True, default=None)
     total_prompt_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    total_completion_tokens: Mapped[int] = mapped_column(
-        Integer, nullable=False, default=0
-    )
+    total_completion_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     thread: Mapped[Thread] = relationship(back_populates="runs")
     steps: Mapped[list[AgentStep]] = relationship(
@@ -131,9 +127,7 @@ class AgentStep(Base):
     tool_name: Mapped[str | None] = mapped_column(String(50), nullable=True, default=None)
     latency_ms: Mapped[int | None] = mapped_column(Integer, nullable=True, default=None)
     prompt_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True, default=None)
-    completion_tokens: Mapped[int | None] = mapped_column(
-        Integer, nullable=True, default=None
-    )
+    completion_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True, default=None)
     # Truncated preview of the input/output payload — 300 chars max
     payload_preview: Mapped[str | None] = mapped_column(Text, nullable=True, default=None)
     created_at: Mapped[datetime] = mapped_column(

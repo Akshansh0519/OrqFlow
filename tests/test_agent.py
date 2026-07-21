@@ -16,37 +16,36 @@ Acceptance criteria (T-05):
 from __future__ import annotations
 
 import json
+
 import pytest
 from httpx import AsyncClient
-
-from tests.test_graph import _make_finish_llm
-from app.graph.builder import build_graph
-from app.graph.tools import load_agent_tools
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.store.memory import InMemoryStore
 
+from app.graph.builder import build_graph
+from app.graph.tools import load_agent_tools
+from tests.test_graph import _make_finish_llm
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
+
 
 @pytest.fixture
 async def auth_client(async_client: AsyncClient) -> AsyncClient:
     """Register a user, login, and return an authenticated client."""
     email = "agent_test@example.com"
     password = "SuperSecretPassword123!"
-    
+
     # Register
     await async_client.post(
-        "/api/auth/register",
-        json={"email": email, "username": "agent_test", "password": password}
+        "/api/auth/register", json={"email": email, "username": "agent_test", "password": password}
     )
-    
+
     # Login
     login_res = await async_client.post(
-        "/api/auth/login",
-        json={"email": email, "password": password}
+        "/api/auth/login", json={"email": email, "password": password}
     )
     token = login_res.json()["access_token"]
-    
+
     # Set Authorization header
     async_client.headers["Authorization"] = f"Bearer {token}"
     return async_client
@@ -77,20 +76,19 @@ async def mock_graph_state():
     that always finishes immediately, using in-memory backends.
     """
     from app.main import app
+
     tools = await load_agent_tools(use_mock=True)
     llm = _make_finish_llm()
     graph = build_graph(tools, supervisor_llm=llm, worker_llm=llm)
-    
+
     app.state.checkpointer = MemorySaver()
     app.state.store = InMemoryStore()
-    app.state.graph = graph.compile(
-        checkpointer=app.state.checkpointer,
-        store=app.state.store
-    )
+    app.state.graph = graph.compile(checkpointer=app.state.checkpointer, store=app.state.store)
     return app.state.graph
 
 
 # ── Tests ─────────────────────────────────────────────────────────────────────
+
 
 @pytest.mark.anyio
 async def test_unauthenticated_requests_rejected(async_client: AsyncClient):
@@ -127,13 +125,11 @@ async def test_run_agent_streams_sse(auth_client: AsyncClient):
     # 2. Run the agent (we have to use httpx stream to read SSE)
     events = []
     async with auth_client.stream(
-        "POST", 
-        f"/api/threads/{thread_id}/run", 
-        json={"message": "Hello OrqFlow!"}
+        "POST", f"/api/threads/{thread_id}/run", json={"message": "Hello OrqFlow!"}
     ) as response:
         assert response.status_code == 200
         assert "text/event-stream" in response.headers.get("content-type", "")
-        
+
         async for line in response.aiter_lines():
             line = line.strip()
             if not line:
@@ -158,9 +154,7 @@ async def test_get_trace(auth_client: AsyncClient):
 
     # Run something so the checkpointer saves state
     async with auth_client.stream(
-        "POST", 
-        f"/api/threads/{thread_id}/run", 
-        json={"message": "Trace me"}
+        "POST", f"/api/threads/{thread_id}/run", json={"message": "Trace me"}
     ) as response:
         async for _ in response.aiter_lines():
             pass
@@ -169,7 +163,7 @@ async def test_get_trace(auth_client: AsyncClient):
     res = await auth_client.get(f"/api/threads/{thread_id}/trace")
     assert res.status_code == 200
     data = res.json()
-    
+
     assert "messages" in data
     assert isinstance(data["messages"], list)
     assert len(data["messages"]) > 0

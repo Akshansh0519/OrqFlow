@@ -21,7 +21,6 @@ from sqlalchemy.ext.asyncio import (
 from app.config import settings
 from app.models import Base
 
-
 # ── Test database (SQLite in-memory) ─────────────────────────────────────────
 
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
@@ -64,9 +63,7 @@ async def db_session(test_engine):
     Yield a per-test async session that rolls back after each test.
     This keeps tests isolated without recreating tables each time.
     """
-    session_factory = async_sessionmaker(
-        test_engine, class_=AsyncSession, expire_on_commit=False
-    )
+    session_factory = async_sessionmaker(test_engine, class_=AsyncSession, expire_on_commit=False)
     async with session_factory() as session:
         yield session
         await session.rollback()
@@ -85,8 +82,6 @@ async def async_client(db_session):
         yield db_session
 
     app.dependency_overrides[get_db] = override_get_db
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         yield client
     app.dependency_overrides.clear()

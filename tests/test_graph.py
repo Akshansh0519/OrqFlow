@@ -19,25 +19,26 @@ Acceptance criteria (T-04):
 
 from __future__ import annotations
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock
 
+import pytest
 from langchain_core.messages import HumanMessage
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.store.memory import InMemoryStore
 
-from app.graph.state import AgentState, MAX_STEPS
-from app.graph.nodes import RouterOutput, make_supervisor_node
 from app.graph.builder import build_graph
+from app.graph.nodes import RouterOutput, make_supervisor_node
+from app.graph.state import MAX_STEPS, AgentState
 from app.graph.tools import load_agent_tools
 
-
 # ── Fixtures ──────────────────────────────────────────────────────────────────
+
 
 @pytest.fixture
 def mock_tools():
     """Load mock tools synchronously for the test session."""
     import asyncio
+
     return asyncio.get_event_loop().run_until_complete(load_agent_tools(use_mock=True))
 
 
@@ -92,6 +93,7 @@ def _make_routing_llm(route_to: str):
 
 # ── Tool loading tests ────────────────────────────────────────────────────────
 
+
 @pytest.mark.anyio
 async def test_load_agent_tools_returns_all_specialists():
     tools = await load_agent_tools(use_mock=True)
@@ -131,6 +133,7 @@ async def test_coder_tools_partitioned_correctly():
 
 # ── Graph structure tests ─────────────────────────────────────────────────────
 
+
 def test_build_graph_succeeds(mock_tools):
     """build_graph() must complete without raising."""
     mock_llm = _make_finish_llm()
@@ -151,6 +154,7 @@ def test_graph_has_all_nodes(mock_tools):
 
 
 # ── Supervisor node unit tests ────────────────────────────────────────────────
+
 
 @pytest.mark.anyio
 async def test_supervisor_routes_to_end_on_finish():
@@ -274,6 +278,7 @@ async def test_supervisor_handles_llm_error_gracefully():
 
 
 # ── Full graph invocation tests ───────────────────────────────────────────────
+
 
 @pytest.mark.anyio
 async def test_graph_invoke_with_finish_llm(compiled_graph):

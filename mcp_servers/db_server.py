@@ -47,9 +47,21 @@ mcp = FastMCP(
 # ── SQL validation ────────────────────────────────────────────────────────────
 
 BLOCKED_KEYWORDS = {
-    "INSERT", "UPDATE", "DELETE", "DROP", "TRUNCATE", "ALTER",
-    "CREATE", "REPLACE", "MERGE", "GRANT", "REVOKE", "EXEC",
-    "EXECUTE", "CALL", "PRAGMA",
+    "INSERT",
+    "UPDATE",
+    "DELETE",
+    "DROP",
+    "TRUNCATE",
+    "ALTER",
+    "CREATE",
+    "REPLACE",
+    "MERGE",
+    "GRANT",
+    "REVOKE",
+    "EXEC",
+    "EXECUTE",
+    "CALL",
+    "PRAGMA",
 }
 ALLOWED_TABLES = {"employees", "projects", "tasks", "time_logs"}
 BLOCKED_TABLES = {"users", "threads", "agent_runs", "agent_steps"}
@@ -81,9 +93,7 @@ def _validate_select_only(sql: str) -> None:
     stmt_type = statement.get_type()
 
     if stmt_type != "SELECT":
-        raise ValueError(
-            f"Only SELECT statements are allowed. Got: {stmt_type or 'UNKNOWN'}"
-        )
+        raise ValueError(f"Only SELECT statements are allowed. Got: {stmt_type or 'UNKNOWN'}")
 
     # Secondary check: scan all tokens for blocked keywords
     # Catches edge cases like "SELECT 1; DELETE FROM users" that sqlparse might
@@ -116,8 +126,7 @@ def _validate_company_ops_scope(sql: str) -> None:
     }
     if not referenced_demo_tables:
         raise ValueError(
-            "MCP DB queries must reference one of: "
-            + ", ".join(sorted(ALLOWED_TABLES))
+            "MCP DB queries must reference one of: " + ", ".join(sorted(ALLOWED_TABLES))
         )
 
 
@@ -168,6 +177,7 @@ def _mock_execute(sql: str) -> list[dict]:
 
 # ── MCP Tools ─────────────────────────────────────────────────────────────────
 
+
 @mcp.tool()
 async def query_database(sql: str) -> list[dict]:
     """
@@ -191,6 +201,7 @@ async def query_database(sql: str) -> list[dict]:
         try:
             from sqlalchemy import text
             from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
             engine = create_async_engine(_mcp_database_url(), pool_pre_ping=True)
             try:
                 session_maker = async_sessionmaker(engine, expire_on_commit=False)
@@ -216,11 +227,16 @@ async def list_tables() -> list[str]:
         try:
             from sqlalchemy import text
             from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
             engine = create_async_engine(_mcp_database_url(), pool_pre_ping=True)
             try:
                 session_maker = async_sessionmaker(engine, expire_on_commit=False)
                 async with session_maker() as session:
-                    result = await session.execute(text("SELECT table_name FROM information_schema.tables WHERE table_schema = 'company_ops';"))
+                    result = await session.execute(
+                        text(
+                            "SELECT table_name FROM information_schema.tables WHERE table_schema = 'company_ops';"
+                        )
+                    )
                     tables = [r[0] for r in result.fetchall()]
                     if tables:
                         return tables
@@ -238,22 +254,22 @@ async def describe_table(table_name: str) -> dict:
     """
     verify_mcp_key()
     if table_name not in ALLOWED_TABLES:
-        raise ValueError(
-            f"Unknown table: {table_name!r}. "
-            f"Available: {sorted(ALLOWED_TABLES)}"
-        )
+        raise ValueError(f"Unknown table: {table_name!r}. Available: {sorted(ALLOWED_TABLES)}")
 
     if settings.SEARCH_PROVIDER != "mock":
         try:
             from sqlalchemy import text
             from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
             engine = create_async_engine(_mcp_database_url(), pool_pre_ping=True)
             try:
                 session_maker = async_sessionmaker(engine, expire_on_commit=False)
                 async with session_maker() as session:
                     result = await session.execute(
-                        text("SELECT column_name FROM information_schema.columns WHERE table_schema = 'company_ops' AND table_name = :t;"),
-                        {"t": table_name}
+                        text(
+                            "SELECT column_name FROM information_schema.columns WHERE table_schema = 'company_ops' AND table_name = :t;"
+                        ),
+                        {"t": table_name},
                     )
                     cols = [r[0] for r in result.fetchall()]
                     if cols:
@@ -264,14 +280,11 @@ async def describe_table(table_name: str) -> dict:
             pass
 
     if table_name not in _MOCK_TABLES:
-        raise ValueError(
-            f"Unknown table: {table_name!r}. "
-            f"Available: {list(_MOCK_TABLES.keys())}"
-        )
+        raise ValueError(f"Unknown table: {table_name!r}. Available: {list(_MOCK_TABLES.keys())}")
     sample = _MOCK_TABLES[table_name][0] if _MOCK_TABLES[table_name] else {}
     return {
         "table": table_name,
-        "columns": list(sample.keys()),       
+        "columns": list(sample.keys()),
     }
 
 
@@ -279,4 +292,5 @@ async def describe_table(table_name: str) -> dict:
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(mcp.http_app(), host="0.0.0.0", port=8001)

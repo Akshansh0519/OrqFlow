@@ -46,4 +46,3 @@ def get_async_session() -> async_sessionmaker[AsyncSession]:
             expire_on_commit=False,
         )
     return _async_session
-
