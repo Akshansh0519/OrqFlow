@@ -72,6 +72,12 @@ jobs:
       - name: Run Database Migrations
         env:
           DATABASE_URL: postgresql+asyncpg://postgres:postgrespassword@localhost:5432/orqflow
+          REDIS_URL: redis://localhost:6379/0
+          ACCESS_TOKEN_SECRET: ci-test-secret-key-12345678901234567890
+          REFRESH_TOKEN_SECRET: ci-refresh-secret-key-12345678901234567890
+          MCP_SERVER_KEY: ci-test-mcp-key
+          SEARCH_PROVIDER: mock
+          CLIENT_URL: http://localhost:5173
         run: |
           alembic upgrade head
 
