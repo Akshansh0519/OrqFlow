@@ -108,10 +108,8 @@ class Settings(BaseSettings):
             or "redis.cloud" in url
             or "aivencloud.com" in url
         )
-        if needs_ssl:
-            return {
-                "ssl_cert_reqs": ssl.CERT_REQUIRED,
-            }
+        # The rediss:// scheme automatically configures SSL in redis.asyncio.
+        # Passing manual SSL kwargs crashes the redis client in recent versions.
         return {}
 
     @cached_property
