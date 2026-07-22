@@ -374,6 +374,9 @@ function EmptyState({ onPrompt }: { onPrompt: (text: string) => void }) {
           </motion.button>
         ))}
       </div>
+      
+      {/* Backend Status Poller on Login Page */}
+      <BackendStatusBanner />
     </div>
   );
 }
