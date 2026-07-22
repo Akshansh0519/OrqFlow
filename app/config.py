@@ -110,7 +110,6 @@ class Settings(BaseSettings):
         )
         if needs_ssl:
             return {
-                "ssl": True,
                 "ssl_cert_reqs": ssl.CERT_REQUIRED,
             }
         return {}
