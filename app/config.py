@@ -101,13 +101,6 @@ class Settings(BaseSettings):
           - redis.cloud domain → always SSL
           - aivencloud.com domain → always SSL
         """
-        url = self.REDIS_URL
-        needs_ssl = (
-            url.startswith("rediss://")
-            or "upstash.io" in url
-            or "redis.cloud" in url
-            or "aivencloud.com" in url
-        )
         # The rediss:// scheme automatically configures SSL in redis.asyncio.
         # Passing manual SSL kwargs crashes the redis client in recent versions.
         return {}

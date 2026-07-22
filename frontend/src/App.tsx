@@ -296,6 +296,9 @@ function LoginPage({
           </p>
         </div>
       </motion.div>
+
+      {/* Backend Status Poller on Login Page */}
+      <BackendStatusBanner />
     </div>
   );
 }
@@ -374,9 +377,6 @@ function EmptyState({ onPrompt }: { onPrompt: (text: string) => void }) {
           </motion.button>
         ))}
       </div>
-      
-      {/* Backend Status Poller on Login Page */}
-      <BackendStatusBanner />
     </div>
   );
 }
@@ -1158,9 +1158,6 @@ export default function App() {
         trace={traceData}
         loading={isLoadingTrace}
       />
-      
-      {/* Backend Status Poller */}
-      <BackendStatusBanner />
     </div>
   );
 }
