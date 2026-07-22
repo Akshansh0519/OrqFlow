@@ -10,6 +10,7 @@ import { TopologyBar } from './components/TopologyBar';
 import { TraceInspector, type TraceStep } from './components/TraceInspector';
 import { MarkdownRenderer } from './components/MarkdownRenderer';
 import { ToolCallCard } from './components/ToolCallCard';
+import { BackendStatusBanner } from './components/BackendStatusBanner';
 
 const CONFIGURED_API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 
@@ -1154,6 +1155,9 @@ export default function App() {
         trace={traceData}
         loading={isLoadingTrace}
       />
+      
+      {/* Backend Status Poller */}
+      <BackendStatusBanner />
     </div>
   );
 }
