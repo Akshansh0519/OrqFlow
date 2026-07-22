@@ -13,7 +13,7 @@ Section 17.5 (Deployment Hardening):
 
 from __future__ import annotations
 
-import ssl
+import ssl  # noqa: F401 — kept for potential future use
 from functools import cached_property
 from typing import Self
 
@@ -126,6 +126,25 @@ class Settings(BaseSettings):
             "decode_responses": False,  # LangGraph checkpointer needs bytes
             **self.redis_ssl_kwargs,
         }
+
+    @cached_property
+    def psycopg_database_url(self) -> str:
+        """
+        Return the DATABASE_URL formatted for psycopg (used by LangGraph checkpointer/store).
+
+        asyncpg (SQLAlchemy) expects:  postgresql+asyncpg://...?ssl=require
+        psycopg (LangGraph)  expects:  postgresql://...?sslmode=require
+
+        This property performs that conversion automatically.
+        """
+        url = self.DATABASE_URL
+        # Strip the asyncpg driver prefix
+        url = url.replace("postgresql+asyncpg://", "postgresql://")
+        # Replace ?ssl=require with ?sslmode=require
+        url = url.replace("?ssl=require", "?sslmode=require")
+        # Also strip channel_binding which psycopg doesn't support via URL
+        url = url.replace("&channel_binding=require", "")
+        return url
 
     @cached_property
     def is_production(self) -> bool:

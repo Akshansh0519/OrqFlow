@@ -49,16 +49,23 @@ async def get_checkpointer(use_memory: bool = False):
         logger.info("checkpointer_mode", mode="memory")
         return MemorySaver()
 
-    # Production: Redis with SSL + timeout (§17.5.3 / §17.5.4)
+    # Production: Postgres via psycopg_pool
     try:
-        from langgraph.checkpoint.redis.aio import AsyncRedisSaver
+        from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+        from psycopg_pool import AsyncConnectionPool
 
-        saver = AsyncRedisSaver(
-            settings.REDIS_URL,
-            connection_args=settings.redis_client_kwargs,
+        db_url = settings.psycopg_database_url
+        pool = AsyncConnectionPool(
+            db_url,
+            min_size=1,
+            max_size=10,
+            kwargs={"autocommit": True, "prepare_threshold": 0},
+            open=False,
         )
-        await saver.__aenter__()
-        logger.info("checkpointer_mode", mode="redis", url=settings.REDIS_URL[:30])
+        await pool.open()
+        saver = AsyncPostgresSaver(conn=pool)
+        await saver.setup()
+        logger.info("checkpointer_mode", mode="postgres", url=settings.DATABASE_URL[:30])
         return saver
 
     except Exception as exc:
@@ -66,7 +73,7 @@ async def get_checkpointer(use_memory: bool = False):
             raise
         # Graceful degradation: fall back to in-memory and log the failure
         logger.error(
-            "redis_checkpointer_failed",
+            "postgres_checkpointer_failed",
             exc=str(exc),
             fallback="MemorySaver",
         )
@@ -98,7 +105,7 @@ async def get_store(use_memory: bool = False):
         from psycopg.rows import dict_row
         from psycopg_pool import AsyncConnectionPool
 
-        db_url = settings.DATABASE_URL.replace("postgresql+asyncpg://", "postgresql://")
+        db_url = settings.psycopg_database_url
         pool = AsyncConnectionPool(
             db_url,
             min_size=1,

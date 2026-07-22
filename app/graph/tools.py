@@ -183,13 +183,21 @@ async def load_agent_tools(use_mock: bool = False) -> dict[str, list]:
             return await _build_mcp_tools()
         except Exception as exc:
             if attempt == max_retries - 1:
-                logger.error("mcp_tools_failed_fatal", exc=str(exc), attempts=max_retries)
-                raise RuntimeError(
-                    f"Failed to connect to MCP servers after {max_retries} attempts: {exc}"
+                logger.error(
+                    "mcp_tools_failed_degraded",
+                    exc=str(exc),
+                    attempts=max_retries,
+                    fallback="empty_tools",
                 )
+                # Graceful degradation: boot without tools rather than crashing the API.
+                # Auth, health, and other non-agent endpoints will still work.
+                # The MCP servers can be started and the API restarted to pick them up.
+                return {"researcher": [], "analyst": [], "coder": []}
 
             delay = base_delay * (2**attempt)
             logger.warning(
                 "mcp_tools_connection_retry", attempt=attempt + 1, delay=delay, exc=str(exc)
             )
             await asyncio.sleep(delay)
+
+    return {"researcher": [], "analyst": [], "coder": []}
