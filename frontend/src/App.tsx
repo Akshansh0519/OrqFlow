@@ -272,29 +272,6 @@ function LoginPage({
         }}>
           First launch auto-registers · credentials persist in localStorage
         </p>
-
-        {/* Free Tier Spin-Up Notice */}
-        <div style={{
-          marginTop: '1rem',
-          padding: '0.75rem 0.85rem',
-          borderRadius: 10,
-          background: 'rgba(234,179,8,0.06)',
-          border: '1px solid rgba(234,179,8,0.25)',
-          display: 'flex',
-          alignItems: 'flex-start',
-          gap: '0.55rem',
-        }}>
-          <span style={{ color: '#fbbf24', fontSize: '0.85rem', lineHeight: 1, marginTop: '1px' }}>*</span>
-          <p style={{
-            margin: 0,
-            fontFamily: "'JetBrains Mono', monospace",
-            fontSize: '0.65rem',
-            color: '#cbd5e1',
-            lineHeight: 1.5,
-          }}>
-            <strong style={{ color: '#fbbf24', fontWeight: 600 }}>Hosted on Free-Tier Cloud (Render):</strong> If the server has been inactive, your first sign-in may take <span style={{ color: '#38bdf8', fontWeight: 600 }}>50–60 seconds</span> while the backend wakes up. Please wait!
-          </p>
-        </div>
       </motion.div>
 
       {/* Backend Status Poller on Login Page */}
