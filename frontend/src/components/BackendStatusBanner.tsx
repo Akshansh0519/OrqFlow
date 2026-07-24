@@ -14,6 +14,13 @@ function getApiBase() {
 export function BackendStatusBanner() {
   const [overallStatus, setOverallStatus] = useState<ServiceStatus>("CHECKING");
   const [attemptCount, setAttemptCount] = useState(0);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    // Small delay before showing so it slides in smoothly
+    const showTimer = setTimeout(() => setVisible(true), 300);
+    return () => clearTimeout(showTimer);
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -24,18 +31,18 @@ export function BackendStatusBanner() {
       const apiBase = getApiBase();
 
       try {
-        const res = await fetch(`${apiBase}/api/health`);
+        const res = await fetch(`${apiBase}/api/health`, { signal: AbortSignal.timeout(5000) });
         if (res.ok) {
           if (!isMounted) return;
           setOverallStatus("ALL_ONLINE");
         } else {
           throw new Error("Backend not OK");
         }
-      } catch (err) {
+      } catch {
         if (!isMounted) return;
         setOverallStatus("WAKING_UP");
         setAttemptCount((prev) => prev + 1);
-        timer = setTimeout(checkHealth, 3000); // Check every 3 seconds
+        timer = setTimeout(checkHealth, 3000);
       }
     };
 
@@ -49,78 +56,232 @@ export function BackendStatusBanner() {
 
   if (overallStatus === "DISMISSED") return null;
 
+  const isWaking = overallStatus === "CHECKING" || overallStatus === "WAKING_UP";
+  const displayAttempt = overallStatus === "CHECKING" ? 1 : attemptCount;
+
   return (
-    <div className="fixed bottom-6 right-6 z-[100] max-w-sm w-full mx-4 transition-all duration-500 ease-in-out font-mono">
-      {/* 1. Checking / Waking Up Caution Card */}
-      {(overallStatus === "CHECKING" || overallStatus === "WAKING_UP") && (
-        <div className="bg-[#121820]/95 backdrop-blur-xl border border-amber-500/40 rounded-2xl p-5 shadow-2xl shadow-amber-950/30 text-white relative overflow-hidden animate-in fade-in slide-in-from-bottom-5 duration-300">
-          <div className="absolute top-0 left-0 h-1 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-300 animate-pulse w-full" />
-          
-          <div className="flex items-start justify-between gap-3 mb-3">
-            <div className="flex items-center gap-2.5">
-              <span className="relative flex h-3 w-3">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
+    <div
+      style={{
+        position: "fixed",
+        bottom: "1.5rem",
+        right: "1.5rem",
+        zIndex: 9999,
+        maxWidth: "360px",
+        width: "calc(100vw - 3rem)",
+        fontFamily: "'Inter', sans-serif",
+        transform: visible ? "translateY(0)" : "translateY(120%)",
+        opacity: visible ? 1 : 0,
+        transition: "transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s ease",
+      }}
+    >
+      {/* Waking Up / Checking card */}
+      {isWaking && (
+        <div
+          style={{
+            background: "rgba(12, 18, 28, 0.97)",
+            backdropFilter: "blur(16px)",
+            border: "1px solid rgba(245, 158, 11, 0.4)",
+            borderRadius: "16px",
+            padding: "1.1rem 1.2rem",
+            boxShadow: "0 20px 60px -10px rgba(120, 80, 0, 0.35), 0 0 0 1px rgba(245, 158, 11, 0.08)",
+            color: "#fff",
+            position: "relative",
+            overflow: "hidden",
+          }}
+        >
+          {/* Top accent bar with animation via keyframes in style */}
+          <div
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              height: "3px",
+              background: "linear-gradient(90deg, #f59e0b, #fb923c, #fbbf24)",
+              animation: "pulse 2s ease-in-out infinite",
+            }}
+          />
+
+          {/* Header row */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.75rem" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+              {/* Pulsing amber dot */}
+              <span style={{ position: "relative", display: "inline-flex", width: "12px", height: "12px" }}>
+                <span
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    borderRadius: "50%",
+                    background: "rgba(251, 191, 36, 0.5)",
+                    animation: "ping 1s cubic-bezier(0, 0, 0.2, 1) infinite",
+                  }}
+                />
+                <span
+                  style={{
+                    position: "relative",
+                    display: "inline-flex",
+                    width: "12px",
+                    height: "12px",
+                    borderRadius: "50%",
+                    background: "#f59e0b",
+                  }}
+                />
               </span>
-              <h4 className="font-bold text-sm tracking-tight text-amber-300 flex items-center gap-1.5 font-sans">
+              <span style={{ fontWeight: 700, fontSize: "0.82rem", color: "#fcd34d", letterSpacing: "0.01em" }}>
                 Render Free Tier Notice
-              </h4>
+              </span>
             </div>
-            <span className="text-[10px] font-mono bg-amber-500/10 text-amber-300 px-2 py-0.5 rounded-full border border-amber-500/20">
-              Attempt #{attemptCount || 1}
+            {/* Attempt badge */}
+            <span
+              style={{
+                fontSize: "0.65rem",
+                fontFamily: "'JetBrains Mono', monospace",
+                background: "rgba(245,158,11,0.12)",
+                color: "#fcd34d",
+                padding: "0.2rem 0.55rem",
+                borderRadius: "999px",
+                border: "1px solid rgba(245,158,11,0.25)",
+                whiteSpace: "nowrap",
+              }}
+            >
+              Attempt #{displayAttempt}
             </span>
           </div>
 
-          <p className="text-xs text-gray-300 leading-relaxed mb-4 font-sans">
-            Caution: The API runs on <strong className="text-white">Render Free Tier</strong>. If inactive, the OrqFlow API and its 3 MCP servers take <span className="text-amber-400 font-semibold">~50 seconds to warm up</span>.
-            <br />
-            <span className="text-gray-400 block mt-1.5 italic">We are waking up the multi-agent backend right now...</span>
+          {/* Body */}
+          <p style={{ fontSize: "0.75rem", color: "#cbd5e1", lineHeight: 1.6, margin: "0 0 0.75rem 0" }}>
+            The API runs on{" "}
+            <strong style={{ color: "#fff" }}>Render Free Tier</strong>. If inactive, the OrqFlow API takes{" "}
+            <span style={{ color: "#fbbf24", fontWeight: 600 }}>~50 seconds to warm up</span>.
+          </p>
+          <p style={{ fontSize: "0.7rem", color: "#64748b", margin: "0 0 0.85rem 0", fontStyle: "italic" }}>
+            Polling the backend every 3s until it responds…
           </p>
 
-          <div className="flex items-center justify-between text-[10px] text-gray-400 border-t border-white/5 pt-2">
-            <span className="flex items-center gap-1"><Loader2 size={10} className="animate-spin" /> Checking every 3s</span>
+          {/* Footer */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              borderTop: "1px solid rgba(255,255,255,0.06)",
+              paddingTop: "0.65rem",
+            }}
+          >
+            <span style={{ fontSize: "0.68rem", color: "#64748b", display: "flex", alignItems: "center", gap: "0.3rem" }}>
+              <Loader2 size={11} style={{ animation: "spin 1s linear infinite" }} />
+              Checking every 3s
+            </span>
             <button
               onClick={() => setOverallStatus("DISMISSED")}
-              className="text-gray-400 hover:text-white underline transition-colors"
+              style={{
+                fontSize: "0.68rem",
+                color: "#64748b",
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                textDecoration: "underline",
+                padding: 0,
+              }}
             >
-              Hide Warning
+              Hide
             </button>
           </div>
         </div>
       )}
 
-      {/* 2. All Online Success Card */}
+      {/* Online success card */}
       {overallStatus === "ALL_ONLINE" && (
-        <div className="bg-[#101915]/95 backdrop-blur-xl border border-emerald-500/50 rounded-2xl p-5 shadow-2xl shadow-emerald-950/40 text-white relative overflow-hidden animate-in fade-in zoom-in-95 duration-300">
-          <div className="absolute top-0 left-0 h-1 bg-gradient-to-r from-emerald-400 via-teal-400 to-emerald-500 w-full" />
-          
-          <div className="flex items-start justify-between gap-3 mb-2">
-            <div className="flex items-center gap-2.5">
-              <span className="relative flex h-3 w-3">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+        <div
+          style={{
+            background: "rgba(8, 20, 14, 0.97)",
+            backdropFilter: "blur(16px)",
+            border: "1px solid rgba(52, 211, 153, 0.5)",
+            borderRadius: "16px",
+            padding: "1.1rem 1.2rem",
+            boxShadow: "0 20px 60px -10px rgba(0, 80, 40, 0.4), 0 0 0 1px rgba(52,211,153,0.08)",
+            color: "#fff",
+            position: "relative",
+            overflow: "hidden",
+          }}
+        >
+          <div
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              height: "3px",
+              background: "linear-gradient(90deg, #34d399, #2dd4bf, #10b981)",
+            }}
+          />
+
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.65rem" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+              <span style={{ position: "relative", display: "inline-flex", width: "12px", height: "12px" }}>
+                <span
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    borderRadius: "50%",
+                    background: "rgba(52, 211, 153, 0.5)",
+                    animation: "ping 1s cubic-bezier(0, 0, 0.2, 1) infinite",
+                  }}
+                />
+                <span
+                  style={{
+                    position: "relative",
+                    display: "inline-flex",
+                    width: "12px",
+                    height: "12px",
+                    borderRadius: "50%",
+                    background: "#10b981",
+                  }}
+                />
               </span>
-              <h4 className="font-bold text-sm tracking-tight text-emerald-300 font-sans">
+              <span style={{ fontWeight: 700, fontSize: "0.82rem", color: "#6ee7b7" }}>
                 Backend is Online!
-              </h4>
+              </span>
             </div>
             <button
               onClick={() => setOverallStatus("DISMISSED")}
-              className="text-gray-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors"
+              style={{
+                background: "rgba(255,255,255,0.06)",
+                border: "none",
+                borderRadius: "8px",
+                padding: "4px",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                color: "#94a3b8",
+              }}
             >
               <X size={14} />
             </button>
           </div>
 
-          <p className="text-xs text-gray-300 leading-relaxed mb-4 font-sans">
-            The OrqFlow API returned <strong className="text-emerald-400">200 OK</strong>. The multi-agent LangGraph system is fully online.
+          <p style={{ fontSize: "0.75rem", color: "#cbd5e1", lineHeight: 1.6, margin: "0 0 0.9rem 0" }}>
+            The OrqFlow API returned{" "}
+            <strong style={{ color: "#34d399" }}>200 OK</strong>. The multi-agent system is fully online.
           </p>
 
           <button
             onClick={() => setOverallStatus("DISMISSED")}
-            className="w-full py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 rounded-lg text-[11px] font-bold tracking-wide text-white shadow-lg shadow-emerald-600/30 transition-all font-sans"
+            style={{
+              width: "100%",
+              padding: "0.55rem",
+              background: "linear-gradient(135deg, #059669 0%, #0d9488 100%)",
+              border: "none",
+              borderRadius: "10px",
+              color: "#fff",
+              fontSize: "0.75rem",
+              fontWeight: 700,
+              cursor: "pointer",
+              letterSpacing: "0.03em",
+              boxShadow: "0 4px 14px -4px rgba(16, 185, 129, 0.5)",
+            }}
           >
-            Got It, Continue to OrqFlow
+            Got It, Continue to OrqFlow →
           </button>
         </div>
       )}
