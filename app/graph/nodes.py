@@ -34,6 +34,7 @@ interview_answer: "Walk me through a request that needs researcher + analyst."
 from __future__ import annotations
 
 import warnings
+from datetime import datetime
 
 import structlog
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
@@ -153,6 +154,8 @@ def make_supervisor_node(llm):
         # Bug 3 fix: inject failed specialists into the system prompt so the
         # LLM knows to avoid them.
         system_content = SUPERVISOR_SYSTEM_PROMPT
+        system_content += f"\n\nCURRENT DATE: {datetime.utcnow().strftime('%Y-%m-%d')}"
+        
         if failed_specialists:
             failed_list = ", ".join(failed_specialists)
             system_content += (
@@ -230,6 +233,9 @@ def make_specialist_node(name: str, llm, tools: list[BaseTool], system_prompt: s
     Bug 3 fix: On exception, marks the specialist as failed in state so the
     supervisor won't re-route here in the same run.
     """
+    # Inject the current date into the prompt so the LLM doesn't hallucinate cutoffs
+    system_prompt += f"\n\nCURRENT DATE: {datetime.utcnow().strftime('%Y-%m-%d')}"
+    
     # Create the internal ReAct sub-graph
     agent = create_react_agent(
         model=llm,
@@ -371,6 +377,8 @@ def make_responder_node(llm):
                 logger.warning("responder_fetch_facts_failed", exc=str(exc))
 
         system_msg = RESPONDER_SYSTEM_PROMPT
+        system_msg += f"\n\nCURRENT DATE: {datetime.utcnow().strftime('%Y-%m-%d')}"
+        
         if facts_text:
             system_msg += f"\n\nKnown user facts:\n{facts_text}"
 
