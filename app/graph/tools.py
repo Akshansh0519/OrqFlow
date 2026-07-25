@@ -175,8 +175,10 @@ async def load_agent_tools(use_mock: bool = False) -> dict[str, list]:
 
     import asyncio
 
-    max_retries = 5
-    base_delay = 1.0
+    # Increased to handle Render Free Tier cold starts (~50s)
+    # Delays: 2s + 4s + 8s + 16s + 32s = 62s total wait
+    max_retries = 6
+    base_delay = 2.0
 
     for attempt in range(max_retries):
         try:
