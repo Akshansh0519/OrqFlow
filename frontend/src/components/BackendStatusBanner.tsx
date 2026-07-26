@@ -35,6 +35,18 @@ export function BackendStatusBanner() {
         if (res.ok) {
           if (!isMounted) return;
           setOverallStatus("ALL_ONLINE");
+
+          // Fire a second health ping 5s later so the backend wakes all 3 MCP
+          // servers too — /api/health triggers a background ping to all 4 services
+          // on every hit. The MCPs may still be sleeping when the first ping lands.
+          timer = setTimeout(async () => {
+            if (!isMounted) return;
+            try {
+              await fetch(`${apiBase}/api/health`, { signal: AbortSignal.timeout(5000) });
+            } catch {
+              // Best-effort — ignore errors on the follow-up ping
+            }
+          }, 5000);
         } else {
           throw new Error("Backend not OK");
         }
