@@ -233,14 +233,27 @@ def make_specialist_node(name: str, llm, tools: list[BaseTool], system_prompt: s
     Bug 3 fix: On exception, marks the specialist as failed in state so the
     supervisor won't re-route here in the same run.
     """
-    # Inject the current date into the prompt so the LLM doesn't hallucinate cutoffs
-    system_prompt += f"\n\nCURRENT DATE: {datetime.utcnow().strftime('%Y-%m-%d')}"
-    
-    # Create the internal ReAct sub-graph
+    _base_prompt = system_prompt  # stored without date — date injected fresh on every call
+    _tools = tools  # closure reference used by the empty-tools guard below
+
+    def _dynamic_prompt(state: dict) -> list:
+        """Called by create_react_agent on EACH invocation — fresh date every time.
+
+        By using a callable instead of a static string, we avoid freezing the date
+        at app startup (which caused the LLM to cite a stale knowledge cutoff after
+        the server had been running for days).
+        """
+        current_date = datetime.utcnow().strftime("%Y-%m-%d")
+        return [
+            SystemMessage(content=f"{_base_prompt}\n\nCURRENT DATE: {current_date}")
+        ] + list(state.get("messages", []))
+
+    # Create the internal ReAct sub-graph with a dynamic prompt callable so the
+    # current date is evaluated per-request, not at graph build time.
     agent = create_react_agent(
         model=llm,
-        tools=tools,
-        prompt=system_prompt,
+        tools=_tools,
+        prompt=_dynamic_prompt,
     )
 
     async def specialist_node(state: AgentState, config: RunnableConfig | None = None) -> Command:
@@ -248,6 +261,35 @@ def make_specialist_node(name: str, llm, tools: list[BaseTool], system_prompt: s
         tool_count = state.get("tool_calls_this_run", 0)
         recorder = config.get("configurable", {}).get("step_recorder")
         failed_specialists = list(state.get("failed_specialists") or [])
+
+        # ── Empty-tools guard ───────────────────────────────────────────────
+        # Root cause of the "knowledge cutoff Dec 2023" hallucination:
+        # When MCP servers are sleeping at startup, load_agent_tools() returns
+        # empty lists. create_react_agent is built with zero tools. When invoked,
+        # the LLM has nothing to call, falls back to training data, and reports
+        # an outdated knowledge cutoff instead of using web_search.
+        #
+        # Fix: detect the empty state here and return a user-readable message.
+        # The background _tool_reload_loop in main.py will hot-swap the graph
+        # with real tools when the MCP servers finish waking up (~30s).
+        if not _tools:
+            logger.warning(
+                "specialist_no_tools",
+                specialist=name,
+                reason="MCP servers were sleeping at startup; background reload pending",
+            )
+            no_tools_msg = AIMessage(
+                content=(
+                    f"⚠️ The **{name}** agent's tools are still warming up "
+                    "(Render free-tier cold start). The system is automatically "
+                    "reloading them in the background. "
+                    "**Please retry your question in ~30 seconds.**"
+                )
+            )
+            return Command(
+                goto="supervisor",
+                update={"messages": [no_tools_msg]},
+            )
 
         # ── Per-run tool call cap (Card 10) ────────────────────────────────
         if tool_count >= settings.TOOL_CALLS_PER_RUN:
