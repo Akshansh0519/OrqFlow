@@ -15,6 +15,7 @@ Lifespan:
 
 from __future__ import annotations
 
+import asyncio
 from contextlib import asynccontextmanager
 
 import structlog
@@ -28,6 +29,56 @@ from app.middleware.request_id import RequestIDMiddleware
 from app.routers import health
 
 logger = structlog.get_logger()
+
+
+async def _tool_reload_loop(app: FastAPI) -> None:
+    """Background coroutine: retry MCP tool loading until all servers are reachable.
+
+    Spawned at startup when load_agent_tools() returns empty lists (MCP cold start).
+    On success, hot-swaps app.state.graph with a freshly compiled graph that has
+    real tools attached — no API process restart required.
+
+    Cancelled automatically by lifespan cleanup on application shutdown.
+
+    Root cause this fixes:
+      MCP servers on Render free tier sleep after 15 min of inactivity.
+      At startup the 6-retry load_agent_tools() loop times out before they wake.
+      The graph is then compiled with empty tool lists. The researcher specialist
+      has no web_search tool, falls back to LLM training data, and tells the user
+      its knowledge ends at Dec 2023 instead of searching the web.
+    """
+    from app.graph.builder import build_graph
+    from app.graph.tools import load_agent_tools
+
+    attempt = 0
+    while True:
+        attempt += 1
+        await asyncio.sleep(30)  # wait 30s between attempts
+        logger.info("tool_reload_attempt", attempt=attempt)
+        try:
+            new_tools = await load_agent_tools()
+            if all(len(v) > 0 for v in new_tools.values()):
+                # Every specialist has at least one tool — rebuild and hot-swap
+                uncompiled = build_graph(new_tools)
+                app.state.graph = uncompiled.compile(
+                    checkpointer=app.state.checkpointer,
+                    store=app.state.store,
+                )
+                app.state.agent_tools = new_tools
+                logger.info(
+                    "graph_hot_reloaded",
+                    attempt=attempt,
+                    tools={k: len(v) for k, v in new_tools.items()},
+                )
+                return  # all tools loaded — exit loop
+            else:
+                logger.warning(
+                    "tool_reload_partial",
+                    attempt=attempt,
+                    tools={k: len(v) for k, v in new_tools.items()},
+                )
+        except Exception as exc:
+            logger.warning("tool_reload_failed", attempt=attempt, exc=str(exc))
 
 
 @asynccontextmanager
@@ -69,9 +120,31 @@ async def lifespan(app: FastAPI):
         graph_nodes=list(app.state.graph.get_graph().nodes.keys()),
     )
 
+    # ── Background tool reload (Render free-tier cold-start recovery) ──────────
+    # If any specialist has zero tools (MCP servers were sleeping at startup),
+    # spawn _tool_reload_loop to keep retrying every 30s until tools load,
+    # then hot-swap the compiled graph so users don't need to restart the API.
+    has_missing_tools = any(len(v) == 0 for v in app.state.agent_tools.values())
+    if has_missing_tools:
+        logger.warning(
+            "startup_tools_missing",
+            tools={k: len(v) for k, v in app.state.agent_tools.items()},
+            action="background_reload_loop_started",
+        )
+        app.state.tool_reload_task = asyncio.ensure_future(_tool_reload_loop(app))
+    else:
+        app.state.tool_reload_task = None
+
     yield
 
-    # Shutdown cleanup (add connection pool teardown here when Phase 3 is wired)
+    # Shutdown: cancel the reload task if still running
+    reload_task = getattr(app.state, "tool_reload_task", None)
+    if reload_task and not reload_task.done():
+        reload_task.cancel()
+        try:
+            await reload_task
+        except asyncio.CancelledError:
+            pass
     logger.info("orqflow_shutdown")
 
 
