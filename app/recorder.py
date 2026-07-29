@@ -19,8 +19,7 @@ Bug 4 fix: Added _session_healthy flag. When the SQLAlchemy asyncpg session
   call, a fresh session is created from the factory so subsequent writes succeed.
   This prevents the "Can't reconnect until invalid transaction is rolled back"
   cascade that caused 10-20 failures per run after a single DB hiccup.
-
-Usage in an agent_router run:
+  Usage in an agent_router run:/
     async with StepRecorder.for_run(thread_id, run_id) as recorder:
         config = {"configurable": {"step_recorder": recorder, ...}}
         async for chunk in graph.astream(state, config=config):
